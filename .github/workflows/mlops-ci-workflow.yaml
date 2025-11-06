@@ -1,4 +1,4 @@
-name: MLOps CI Workflow
+name: MLOps
 
 on:
   push:
