@@ -32,8 +32,8 @@ jobs:
 
       - name: Run Feature Engineering
         run: |
-          python src/features/run_feature_engineering.py --input data/processed/cleaned_house_data.csv --output data/processed/feature_engineered_data.csv
+          python src/features/engineer.py --input data/processed/cleaned_house_data.csv --output data/processed/featured_house_data.csv --preprocessor models/trained/preprocessor.pkl
       
       - name: Train Model
         run: |
-          python src/models/train_model.py --input data/processed/feature_engineered_data.csv --output models/trained_model.pkl
+          python src/models/train_model.py   --config configs/model_config.yaml   --data data/processed/featured_house_data.csv   --models-dir models   --mlflow-tracking-uri http://localhost:5555
