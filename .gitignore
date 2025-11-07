@@ -9,7 +9,7 @@ venv/
 venv/
 .env/
 .envrc
-*.csv
+
 
 # Ignore Jupyter Notebook checkpoints
 .ipynb_checkpoints/

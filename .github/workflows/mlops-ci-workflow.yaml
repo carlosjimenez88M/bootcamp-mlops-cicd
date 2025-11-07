@@ -26,8 +26,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run Data Preprocessing 
         run: |
-          pytest tests/
+          python src/data/run_processing.py --input data/raw/house_data.csv --output data/processed/cleaned_house_data.csv
 
-     
+      - name: Run Feature Engineering
+        run: |
+          python src/features/run_feature_engineering.py --input data/processed/cleaned_house_data.csv --output data/processed/feature_engineered_data.csv
+      
+      - name: Train Model
+        run: |
+          python src/models/train_model.py --input data/processed/feature_engineered_data.csv --output models/trained_model.pkl
