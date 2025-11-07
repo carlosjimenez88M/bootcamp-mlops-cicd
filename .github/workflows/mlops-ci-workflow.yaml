@@ -197,6 +197,17 @@ jobs:
           name: trained-models
           path: models/
 
+      - name: Debug - List files in build context
+        run: |
+          echo "=== Build context structure ==="
+          ls -la
+          echo ""
+          echo "=== src/api/ directory ==="
+          ls -la src/api/ || echo "src/api/ not found"
+          echo ""
+          echo "=== models/ directory ==="
+          ls -laR models/ || echo "models/ not found"
+
       - name: Verify Docker Hub credentials
         run: |
           if [ -z "${{ vars.DOCKERHUB_USERNAME }}" ]; then
@@ -225,9 +236,13 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: "."
-          file: "Dockerfile"
+          context: .
+          file: ./Dockerfile
           push: true
+          load: false
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ vars.DOCKERHUB_USERNAME }}/fastapi:${{ github.sha }}
             ${{ vars.DOCKERHUB_USERNAME }}/fastapi:latest
+          cache-from: type=registry,ref=${{ vars.DOCKERHUB_USERNAME }}/fastapi:buildcache
+          cache-to: type=registry,ref=${{ vars.DOCKERHUB_USERNAME }}/fastapi:buildcache,mode=max
