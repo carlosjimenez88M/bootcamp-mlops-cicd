@@ -209,19 +209,19 @@ jobs:
           echo "=== models/ directory ==="
           ls -laR models/ || echo "models/ not found"
 
-      - name: Build services with docker-compose
+      - name: Build API service with Docker Compose
         run: |
-          docker-compose build
+          docker compose build model
 
-      - name: Start services with docker-compose
+      - name: Start API service
         run: |
-          docker-compose up -d
+          docker compose up -d model
 
-      - name: Wait for services to be healthy
+      - name: Wait for API to be healthy
         run: |
-          echo "Waiting for model service to be healthy..."
-          timeout 120 bash -c 'until docker-compose ps | grep "house-price-api" | grep -q "healthy"; do sleep 5; done'
-          echo "✓ Model service is healthy"
+          echo "Waiting for API service to be healthy..."
+          timeout 120 bash -c 'until docker compose ps | grep "house-price-api" | grep -q "healthy"; do sleep 5; done'
+          echo "✓ API service is healthy"
 
       - name: Test API health endpoint
         run: |
@@ -229,29 +229,20 @@ jobs:
           curl -f http://localhost:8000/health || exit 1
           echo "✓ API health check passed"
 
-      - name: Test Streamlit service
-        run: |
-          echo "Testing Streamlit service..."
-          curl -f http://localhost:8501/_stcore/health || exit 1
-          echo "✓ Streamlit service is running"
-
-      - name: Show service logs
+      - name: Show API logs
         if: always()
         run: |
-          echo "=== Model service logs ==="
-          docker-compose logs model
-          echo ""
-          echo "=== Streamlit service logs ==="
-          docker-compose logs streamlit
+          echo "=== API service logs ==="
+          docker compose logs model
 
       - name: Stop and cleanup test containers
         run: |
           echo "Stopping containers..."
-          docker-compose down
+          docker compose down
           echo "✓ Test containers stopped and removed"
           echo ""
           echo "Built images:"
-          docker images | grep -E "house-price|fastapi|streamlit"
+          docker images | grep "bootcamp-mlops-cicd"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -259,31 +250,24 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Tag and push FastAPI image to Docker Hub
+      - name: Tag and push API image to Docker Hub
         run: |
-          echo "Tagging FastAPI image..."
+          echo "Tagging API image..."
           docker tag bootcamp-mlops-cicd-model:latest ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:${{ github.sha }}
           docker tag bootcamp-mlops-cicd-model:latest ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:latest
 
-          echo "Pushing FastAPI image to Docker Hub..."
+          echo "Pushing API image to Docker Hub..."
           docker push ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:${{ github.sha }}
           docker push ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:latest
-          echo "✓ FastAPI image pushed successfully"
-
-      - name: Tag and push Streamlit image to Docker Hub
-        run: |
-          echo "Tagging Streamlit image..."
-          docker tag bootcamp-mlops-cicd-streamlit:latest ${{ vars.DOCKERHUB_USERNAME }}/house-price-streamlit:${{ github.sha }}
-          docker tag bootcamp-mlops-cicd-streamlit:latest ${{ vars.DOCKERHUB_USERNAME }}/house-price-streamlit:latest
-
-          echo "Pushing Streamlit image to Docker Hub..."
-          docker push ${{ vars.DOCKERHUB_USERNAME }}/house-price-streamlit:${{ github.sha }}
-          docker push ${{ vars.DOCKERHUB_USERNAME }}/house-price-streamlit:latest
-          echo "✓ Streamlit image pushed successfully"
+          echo "✓ API image pushed successfully"
+          echo ""
+          echo "Image tags:"
+          echo "  - ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:${{ github.sha }}"
+          echo "  - ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:latest"
 
       - name: Cleanup local images
         if: always()
         run: |
           echo "Cleaning up local images..."
-          docker-compose down --rmi all || true
+          docker compose down --rmi all || true
           echo "✓ Cleanup completed"
