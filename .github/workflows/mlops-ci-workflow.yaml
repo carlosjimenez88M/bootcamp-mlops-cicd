@@ -183,7 +183,7 @@ jobs:
           path: models/
           retention-days: 1
 
-  docker_build:
+  docker_compose_test:
     needs: model_training
     runs-on: ubuntu-latest
     # Solo ejecutar en push a master, no en pull requests
@@ -209,18 +209,49 @@ jobs:
           echo "=== models/ directory ==="
           ls -laR models/ || echo "models/ not found"
 
-      - name: Verify Docker Hub credentials
+      - name: Build services with docker-compose
         run: |
-          if [ -z "${{ vars.DOCKERHUB_USERNAME }}" ]; then
-            echo "ERROR: DOCKERHUB_USERNAME variable is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-            echo "ERROR: DOCKERHUB_TOKEN secret is not set"
-            exit 1
-          fi
-          echo "✓ Docker Hub credentials are available"
-          echo "Username: ${{ vars.DOCKERHUB_USERNAME }}"
+          docker-compose build
+
+      - name: Start services with docker-compose
+        run: |
+          docker-compose up -d
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for model service to be healthy..."
+          timeout 120 bash -c 'until docker-compose ps | grep "house-price-api" | grep -q "healthy"; do sleep 5; done'
+          echo "✓ Model service is healthy"
+
+      - name: Test API health endpoint
+        run: |
+          echo "Testing API health endpoint..."
+          curl -f http://localhost:8000/health || exit 1
+          echo "✓ API health check passed"
+
+      - name: Test Streamlit service
+        run: |
+          echo "Testing Streamlit service..."
+          curl -f http://localhost:8501/_stcore/health || exit 1
+          echo "✓ Streamlit service is running"
+
+      - name: Show service logs
+        if: always()
+        run: |
+          echo "=== Model service logs ==="
+          docker-compose logs model
+          echo ""
+          echo "=== Streamlit service logs ==="
+          docker-compose logs streamlit
+
+      - name: Stop and cleanup test containers
+        run: |
+          echo "Stopping containers..."
+          docker-compose down
+          echo "✓ Test containers stopped and removed"
+          echo ""
+          echo "Built images:"
+          docker images | grep -E "house-price|fastapi|streamlit"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -228,22 +259,31 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Tag and push FastAPI image to Docker Hub
+        run: |
+          echo "Tagging FastAPI image..."
+          docker tag bootcamp-mlops-cicd-model:latest ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:${{ github.sha }}
+          docker tag bootcamp-mlops-cicd-model:latest ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:latest
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+          echo "Pushing FastAPI image to Docker Hub..."
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:${{ github.sha }}
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/house-price-api:latest
+          echo "✓ FastAPI image pushed successfully"
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          load: false
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ vars.DOCKERHUB_USERNAME }}/fastapi:${{ github.sha }}
-            ${{ vars.DOCKERHUB_USERNAME }}/fastapi:latest
-          cache-from: type=registry,ref=${{ vars.DOCKERHUB_USERNAME }}/fastapi:buildcache
-          cache-to: type=registry,ref=${{ vars.DOCKERHUB_USERNAME }}/fastapi:buildcache,mode=max
+      - name: Tag and push Streamlit image to Docker Hub
+        run: |
+          echo "Tagging Streamlit image..."
+          docker tag bootcamp-mlops-cicd-streamlit:latest ${{ vars.DOCKERHUB_USERNAME }}/house-price-streamlit:${{ github.sha }}
+          docker tag bootcamp-mlops-cicd-streamlit:latest ${{ vars.DOCKERHUB_USERNAME }}/house-price-streamlit:latest
+
+          echo "Pushing Streamlit image to Docker Hub..."
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/house-price-streamlit:${{ github.sha }}
+          docker push ${{ vars.DOCKERHUB_USERNAME }}/house-price-streamlit:latest
+          echo "✓ Streamlit image pushed successfully"
+
+      - name: Cleanup local images
+        if: always()
+        run: |
+          echo "Cleaning up local images..."
+          docker-compose down --rmi all || true
+          echo "✓ Cleanup completed"
