@@ -1,6 +1,34 @@
 name: MLOps
 
 on:
+  workflow_dispatch:
+    inputs:
+      run_all:
+        description: 'Runs all jobs'
+        required: false
+        default: true 
+      data_preprocessing:
+        description: 'Runs data preprocessing job'
+        required: false
+        default: false
+      feature_engineering:
+        description: 'Runs feature engineering job'
+        required: false
+        default: false
+      model_training:
+        description: 'Runs model training job'
+        required: false
+        default: false
+      docker_build:
+        description: 'Runs docker build and push job'
+        required: false
+        default: false
+  release:
+    types: [created]
+    branches:
+      - master
+    tags:
+      - 'v*.*.*'
   push:
     branches:
       - master
