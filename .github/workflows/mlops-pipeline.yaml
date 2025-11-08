@@ -1,4 +1,4 @@
-name: MLOps
+name: MLOps_Pipeline
 
 on:
   workflow_dispatch:
